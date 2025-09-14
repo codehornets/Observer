@@ -69,14 +69,18 @@ def forward_to_ollama(method, path, headers, body):
 
     except urllib.error.HTTPError as e:
         logger.error(f"HTTP error from Ollama: {e.code} - {e.reason}")
+        # Capture e.fp in a local variable to avoid closure issues
+        error_fp = e.fp
         def error_iterator():
-            if e.fp:
+            if error_fp:
                 while True:
-                    chunk = e.fp.read(8192)
+                    chunk = error_fp.read(8192)
                     if not chunk:
                         break
                     yield chunk
-        return (e.code, e.headers, error_iterator())
+        # Convert headers to list of tuples format to match success path
+        headers_list = list(e.headers.items()) if hasattr(e.headers, 'items') else []
+        return (e.code, headers_list, error_iterator())
 
     except socket.timeout:
         logger.error(f"Request to {target_url} timed out")
